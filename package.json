@@ -1,0 +1,10 @@
+{
+	"private": true,
+	"scripts": {
+		"build": "wp-scripts build src/chat/index.tsx --output-path=includes/assets/chat --output-filename=index.js && bun bin/fix-chat-asset.js",
+		"start": "wp-scripts start src/chat/index.tsx --output-path=includes/assets/chat --output-filename=index.js"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^30.19.0"
+	}
+}

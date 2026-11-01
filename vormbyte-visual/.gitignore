@@ -1,0 +1,7 @@
+node_modules/
+vendor/
+dist/
+CLAUDE.local.md
+/bin/__pycache__
+/.mcp.json
+/opencode.json

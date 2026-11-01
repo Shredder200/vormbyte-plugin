@@ -1,0 +1,284 @@
+Unreleased
+* Fix: Sites on Windows servers whose table prefix contains capital letters no longer report the connection storage as missing.
+
+v1.12.10 - 2026/10/20
+* Tweak: OAuth connections for MCP now cover the site's entire REST API, using the full access already approved by the administrator. Existing connections keep working without needing to reconnect.
+* Tweak: AI agents editing a Gutenberg page can now detect that it was edited by hand after they read it, and stop instead of overwriting those edits.
+* Tweak: AI agents and Vormbyte HQ can now tell whether Read Mode is on for a site.
+* Tweak: Kinsta sites now let Vormbyte clear cached sign-in responses when AI Abilities settings change.
+* Fix: The Block Editor Queue now reports stopped changes and recovers abandoned batches, instead of staying stuck silently after an error.
+* Fix: Ready Block Editor Queue batches are no longer held up by a newer batch that keeps failing.
+* Fix: A Block Editor Queue page left open in a background tab is no longer reported as closed when the browser slows its heartbeat.
+* Fix: Elementor pages edited through Vormbyte Pro over OAuth now retain global colors and fonts when their styles are regenerated.
+* Fix: Older AI client connections now keep reaching Vormbyte when another plugin uses the same server address. Agents using the older address also receive the recommended connection URL to share with the user.
+* Fix: Turning AI Abilities on now clears outdated sign-in responses after the settings finish saving, including addresses with a trailing slash.
+* Fix: Troubleshoot now distinguishes error notices, unexpected responses and cached replies when a connection check fails, instead of pointing every invalid response at a cache or firewall.
+* Fix: Troubleshoot connection checks now avoid failures caused by WordPress displaying error notices in the sign-in metadata.
+* Fix: Troubleshoot and admin notices no longer produce a database error on sites where connection storage has not yet been initialized.
+* Minor Fixes
+
+v1.12.9 - 2026/10/14
+* Tweak: Vormbyte is now ready for Read Mode, a production ready Vormbyte Pro feature that lets an AI agent inspect a site without Vormbyte's write abilities. It requires Vormbyte Pro 1.12.0 or newer. The new Read Mode page under Vormbyte and `wp vormbyte read-mode` show whether it is on and turn it off. While it is on, only read abilities stay available, Vormbyte Visual does not work, the admin bar says Read Mode, the Abilities Hub lists only the read abilities and the Features page cannot be changed. Read Mode is not a security feature.
+* Minor Fixes
+
+v1.12.8 - 2026/10/07
+* Fix: AI Abilities now stay on on sites where a host or plugin rewrites the site address for individual requests, where they previously switched off after being turned on.
+* Fix: The notice shown when AI Abilities switch off because the site domain changed now also appears on the Configuration page, where it was previously hidden.
+* Fix: The buttons on the Configuration page for AI Abilities, application passwords and the production site notice now save reliably, where the page previously reloaded with nothing changed on some sites.
+* Fix: The Claude Desktop bundle now installs on Windows when the site title contains characters such as | or :, which are replaced with a hyphen in the connector name.
+* Fix: The OAuth discovery addresses now also answer when a server adds a trailing slash to them, where they previously returned a page not found. Troubleshoot recognizes that redirect and shows the line to add to .htaccess, instead of pointing at hosting support.
+* Minor Fixes
+
+v1.12.7 - 2026/10/01
+* Tweak: Vormbyte Design now tells AI agents when a design is active as soon as they connect, so they read it before starting visual work.
+* Fix: Device-code sign-in can now keep waiting for approval when a client polls at the advertised interval, instead of reaching the site's request limit after a few minutes.
+* Fix: Gutenberg changes queued by AI agents can no longer replace a page with a version that has lost most of its text or images. The change stops before saving and the agent is told to send the full content, where it previously finished with the text emptied.
+* Minor Fixes
+
+v1.12.6 - 2026/09/28
+* Tweak: The sandbox safe mode notice now explains in plain words what happened and includes a ready-to-paste prompt for your AI to fix the problem, with a link to the Sandbox page for those who prefer to do it by hand.
+* Fix: Troubleshoot now recognizes when a real .well-known directory with its own .htaccess file keeps the OAuth discovery addresses from reaching WordPress, and shows the rewrite rule to add to that file, where it previously pointed at caches and firewalls.
+* Fix: The Deactivate review page, Manage Connections and the OAuth approval screens now carry their own title, so sites that display PHP notices no longer show a strip_tags() deprecation from wp-admin/admin-header.php at the top of those pages, and the browser tab shows the page name.
+* Minor Fixes
+
+v1.12.5 - 2026/09/18
+* Fix: The OAuth sign-in addresses answer as not found while AI Abilities are off, and page caches no longer keep that answer: enabling the abilities now takes effect immediately, instead of requiring the cache to be emptied by hand.
+* Minor Fixes
+
+v1.12.4 - 2026/09/15
+* New: Grok.com and Grok Bot support. Connect grok.com with OAuth sign-in through a custom connector, or hand Grok Bot a short prompt with the server details and let it set up the OAuth or application password connection on its own.
+* Fix: Admin access and upload link abilities now return their curl examples when PHP disables `escapeshellarg`, instead of failing while formatting the response.
+* Fix: Registering an AI client now reports an error instead of a false success when the client could not be saved, for example on a site whose OAuth table is missing a column. Vormbyte adds a missing column automatically when the database allows it; a client that failed to connect during that window needs to be removed and added again.
+* Fix: Troubleshoot now tells you who is redirecting an OAuth discovery URL. When the redirect comes from WordPress itself, the check points at the redirection, SEO or security plugin holding a rule for that path instead of sending you to hosting support, which cannot see or remove it.
+* Fix: Filesystem abilities called over the REST API now return appropriate HTTP statuses for invalid requests, missing target directories, protected locations, and conflicting file state instead of reporting them as server errors.
+* Fix: Other plugins' Bearer tokens are no longer rejected by Vormbyte. A request carrying another plugin's token now reaches that plugin's own authentication instead of failing with a Vormbyte sign-in error.
+* Fix: Vormbyte Design tools are now available to AI clients that connect over the REST Abilities API, alongside the rest of Vormbyte's abilities.
+* Fix: Prevent an HTTP 500 when another plugin triggers Bearer authentication before WordPress creates its rewrite object on sites using pretty or index-based permalinks.
+* Fix: Browser sign-in now reaches the approval screen on sites whose WordPress Address and Site Address use different hosts (for example www and non-www), including after logging in, instead of stopping on the bare wp-admin dashboard.
+* Fix: MCP server names now distinguish WordPress sites installed in different subdirectories on the same domain, and site titles with symbols display correctly in Claude connectors and bundles.
+* Fix: Vormbyte Visual server names now distinguish WordPress sites installed in different subdirectories on the same domain, and site titles with symbols display correctly in the Visual bundle.
+* Minor Fixes
+
+v1.12.3 - 2026/09/09
+* Fix: Blocks sent to the Block Editor Queue without any settings of their own now save with all of their content. Such a block reached the hidden editor in a form the editor could mistake for outdated content that needed converting, and the conversion discarded the block's items: a bulleted or numbered list was saved empty, or with a single blank item, while the queue still reported the item as finalized. Queue items created before this release are corrected as they are read, so batches already waiting do not need to be recreated.
+* Fix: Vormbyte CLI setup prompts now tell AI agents to select the installer for their current shell and switch to device authorization when browser sign-in cannot complete, so headless connections can finish without manual troubleshooting.
+* Minor Fixes
+
+v1.12.2 - 2026/09/02
+* Fix: Activating Vormbyte with WordPress debugging on no longer prints a "Translation loading for the `vormbyte` domain was triggered too early" notice, followed by "Cannot modify header information" warnings in wp-admin. Feature names and descriptions are now translated when they are displayed rather than while the plugin loads, and abilities still register as early as before.
+* Fix: CSS and JavaScript files created in the sandbox can be loaded by site pages again. PHP and all other sandbox files remain blocked from direct web requests, and protection files installed by the previous release are upgraded automatically without replacing custom server rules.
+
+v1.12.1 - 2026/09/01
+* Fix: Browser sign-in now completes on hosting with an external object cache, where a freshly opened approval link could be reported as invalid or expired before it was ever used. The short-lived approval state is now kept in the database, so AI clients that could not get past the approval screen, such as ChatGPT, connect again.
+* Tweak: The Troubleshoot page now confirms that every OAuth table is installed instead of checking only the first one, so a partial installation is reported rather than appearing healthy.
+
+v1.12.0 - 2026/08/29
+* New: A Features page lets administrators turn complete Vormbyte components on or off (Pro specializations will arrive with the future Vormbyte Pro 1.9.0 release). Abilities previously turned off individually are turned back on when their component is active.
+* Tweak: Features, skills, abilities, and sandbox files now share a quieter interface with clearer hierarchy and consistent disabled states. Incomplete user skills now state what is missing and how to complete them.
+* Fix: Agent context is now categorized as read-only context, so Vormbyte Chat no longer asks for code-execution approval before retrieving it.
+* Fix: The Block Editor Queue now rejects page-builder blocks that require their builder's own runtime and directs AI agents to the appropriate integration, instead of accepting batches that cannot be finalized.
+* Fix: WP-CLI abilities are now exposed only when the server can execute WP-CLI. AI agents that request them by name on unsupported servers receive the reason they are unavailable.
+* Fix: The Block Editor Queue now reports when its hidden editor is unavailable instead of describing every third-party block as unregistered. WordPress 7.1 can also access the hidden editor directly again.
+* Fix: Vormbyte Design now recognizes Do and Don't guidance grouped under labels or subheadings, including typographic apostrophes. Design checks enforce the same guidance and warn when none is recognized.
+* Fix: Vormbyte Visual no longer lists internal system abilities as usable backend tools.
+* Fix: ChatGPT connectors can now pass arguments to Vormbyte abilities through the generic execution tool instead of rejecting them as invalid.
+* Fix: Vormbyte's full AI toolset remains available when another plugin loads the WordPress Abilities API first, instead of exposing only ability discovery.
+* Minor Fixes
+
+v1.11.6 - 2026/08/26
+* Fix: Vormbyte no longer announces classes of its bundled MCP Adapter at a location the plugin does not ship. On a site where another plugin checks whether those classes exist, that check ended in a critical error on every page after updating to 1.11.5.
+
+v1.11.5 - 2026/08/26
+* New: The Configuration page now covers all 72 AI agents supported by the Vormbyte CLI installer, from Claude Code and Codex CLI to Hermes Agent and OpenClaw. Choose an agent once and see only the connection routes that work for it: Vormbyte CLI, OAuth, or Application Password.
+* Tweak: Recurring admin notices now use a consistent close button and stay dismissed for each administrator, while critical setup errors remain visible.
+* Tweak: When the OAuth tables are missing, the Troubleshoot page now names what is actually stopping the installer — AI Abilities being off, a domain lock, or the site not being served over HTTPS — instead of suggesting a deactivate and reactivate cycle that could not have helped.
+* Tweak: Updated the bundled MCP Adapter to version 0.6.1.
+* Fix: Anything a sandbox file prints while it loads is now discarded instead of being added to the response being built at the time. A single leftover debug line in a sandbox file used to appear ahead of the JSON on the MCP and OAuth endpoints, which broke every AI client's connection with a parse error, and showed up on front-end pages and admin screens too. With WP_DEBUG on, the discarded text is written to the PHP error log along with the file that printed it.
+* Fix: A sandbox file that stops with an error no longer ends the whole request. The remaining sandbox files still load, WordPress finishes loading, and safe mode switches on from the next request as before — where previously one broken sandbox file could surface as an unrelated fatal error elsewhere in WordPress.
+* Fix: The Block Editor Queue can now finalize third-party blocks in Chromium on WordPress 7.1, where the isolated editor previously caused registered block libraries to appear unavailable.
+* Fix: AI clients that support both device authorization and browser sign-in, such as Visual Studio Code, can now connect over OAuth. They were registered as device-only clients, which discarded the redirect address they needed and left them refused at sign-in with "This application is registered for device authorization."
+* Fix: The admin warning for detected connection problems now opens Troubleshoot directly instead of sending administrators to Configuration.
+* Minor Fixes
+
+v1.11.4 - 2026/08/13
+* New: Before deactivating Vormbyte, the review page now shows stored Vormbyte Pro memories, user-added skills, and Chat sessions. Choose whether to preserve or permanently delete each data type when removing the plugin.
+* New: AI clients can now discover which Gutenberg block types a site has registered and read each block's attribute schema, supports, and nesting constraints before composing content, instead of finding out about a wrong block name or attribute only when a Block Editor Queue batch fails.
+* Tweak: The Troubleshoot page can now clear this site's registration limits, so an AI client that reports too many attempts can be connected again right away instead of waiting for the hourly budget to refill. Connected clients are left untouched.
+* Fix: Revoking a connection from Manage Connections now frees its connection slot right away, where the slot stayed in use until the connection expired on its own and could keep new clients from registering.
+* Fix: The Block Editor Queue endpoints for claiming, completing, and failing queue items now respond with a clear "send a JSON object body" error when a request arrives without a JSON body or with a malformed one, instead of stopping with a PHP fatal error that left the batch stuck in the running state.
+* Fix: The Block Editor Queue now mounts blocks in the hidden block editor before saving them, so blocks that receive their settings from the editor itself save complete. Previously blocks from libraries such as Kadence Blocks, Spectra, and GenerateBlocks could save without their per-block style IDs and layout markers — rendering unstyled, or with a row's columns stacked full-width — even though the queue reported success.
+* Minor Fixes
+
+v1.11.3 - 2026/08/11
+* New: The Configuration page now asks for the AI client before the authentication method, shows every supported client, and explains technically why an authentication method or cloud-only client cannot work in the current environment.
+* New: Vormbyte detects Kinsta, WP Engine, Hostinger, SiteGround, Pantheon, and Cloudflare security layers that may classify direct connections from cloud AI clients as bot traffic. Application Password is recommended where appropriate, while OAuth remains available with a dismissible technical warning and an editable support email template.
+* New: A dedicated Manage Connections page brings OAuth connected apps and Vormbyte Application Passwords together, with their usage details and revoke actions.
+* New: Command-line tools can sign in with a device code when their browser runs on another machine, such as a shell reached over SSH or inside a container. The tool shows a short code, and you approve it from any device where you are signed in to this site. Only approve a code you started yourself.
+* New: Before deactivation, Vormbyte warns when sandbox files may be powering site functionality, provides a copyable prompt for moving them to persistent storage, and lets administrators choose whether uninstall should remove OAuth data and revoke Vormbyte Application Passwords across all users.
+* Tweak: Codex in ChatGPT Desktop and Codex CLI now have separate setup instructions, and the consumer Gemini CLI entry has moved to Antigravity CLI with its current MCP configuration format.
+* Tweak: simplify troubleshooting for blocked OAuth connections.
+* Tweak: AI clients now receive the WordPress user ID behind their connection and are warned not to modify Vormbyte or revoke the credentials keeping that connection active.
+* Fix: Claude Code connection commands now register the MCP server globally for the current user.
+* Fix: The Block Editor Queue no longer fails every batch with a "Blocked a frame with origin ... from accessing a cross-origin frame" error. When the hidden block editor iframe cannot be read, the queue now serializes with the block runtime of the queue page itself and reports why the iframe was unavailable, instead of failing the batch.
+* Minor Fixes
+
+v1.11.2 - 2026/08/04
+* Fix: Abilities that take no parameters, such as reading the active design or listing the design library, now work with AI clients that send no input at all, where they previously returned an invalid input error.
+* Fix: WP-CLI now runs on Windows, including Local (Local by Flywheel) sites. Set VORMBYTE_WP_CLI_COMMAND or use the vormbyte_wp_cli_command filter when detection is not enough.
+* Fix: Background WP-CLI jobs on Windows return their job ID and the command's real exit code, and no longer corrupt paths or arguments containing %, !, quotation marks or accented characters.
+* Fix: A wp.bat launcher is used only when its wp-cli.phar sits beside it, so command arguments never pass through the Windows command interpreter.
+* Fix: OAuth key generation failures now report what OpenSSL refused and how to fix it, and "wp vormbyte oauth-keys generate" creates the keys from a working PHP environment.
+* Minor Fixes
+
+v1.11.1 - 2026/07/30
+* Fix: OAuth connections no longer ask users to reconnect for additional permissions.
+
+v1.11.0 - 2026/07/28
+* New: Introduced REST API endpoints for the Vormbyte CLI. More information: vormbyte.ai/cli.
+* Fix: Running PHP through an AI agent no longer logs a PHP warning on every call, which on some server setups flooded the error log and made large operations return a gateway error even though the change had already been saved.
+* Minor Fixes
+
+v1.10.1 - 2026/07/24
+* New: The one-click .mcpb bundle download for Claude Desktop is available again; it requires Claude Desktop 1.24012.1 or later.
+* New: A Troubleshoot page runs on-demand checks on your site's AI connection and points at what to fix, including whether a CDN, firewall, or security plugin in front of the site is filtering AI clients. It produces a copyable report.
+* New: A dashboard notice warns administrators when a change on the site stops a previously working AI connection from authenticating, so a connection that suddenly breaks does not go unnoticed.
+* Tweak: Developers can raise the limit of 50 simultaneous OAuth connections with the vormbyte_oauth_max_clients filter.
+* Fix: OAuth sign-in now works for AI clients that request the discovery documents with the resource path appended or inserted, as current connectors do, and on WordPress installed in a subdirectory, where those requests previously returned a "page not found" error.
+* Fix: Imported design directions now recognize heading and body fonts declared as CSS custom properties or labelled lines, so a design no longer saves without an activatable font pair.
+* Minor Fixes
+
+v1.10.0 - 2026/07/21
+* New: Vormbyte Design. AI agents establish one saved design direction for your site and build every page within it, guarded by anti-slop checks; the new Design page lets you preview, import, edit and activate directions. Companion skills cover the workflow, from the design brief to the finished pages.
+* Minor Fixes
+
+v1.9.2 - 2026/07/15
+* New: ChatGPT support. Connect ChatGPT to your site with OAuth sign-in through its developer-mode custom connector.
+* Tweak: Overwriting a post through the Gutenberg pending-change flow is now treated as a destructive action, so your AI client asks before replacing content.
+* Tweak: Reading skills can no longer be turned off, so your skills always stay available even when other abilities are disabled.
+* Tweak: Calling an ability you've turned off now reports that it is switched off and can be re-enabled, instead of a confusing "not found".
+* Fix: Saving Gutenberg content no longer strips backslashes, which could corrupt blocks that rely on escaped characters.
+* Minor Fixes
+
+v1.9.1 - 2026/07/14
+* New: OAuth sign-in for AI clients. Claude and other MCP clients can connect through a standard OAuth authorization flow, approving access from your WordPress login. The Connect page walks you through each client with per-client setup steps.
+* Fix: Abilities Hub enable, disable, and bulk actions no longer fail with an "Invalid ability name" error on some sites.
+* Minor Fixes
+
+v1.9.0 - 2026/07/08
+* New: Vormbyte Chat, an AI agent that lives inside your WordPress dashboard. Describe what you want in plain language and it makes the change, showing you exactly what it will do and asking for your approval first. It runs on your own AI provider key, so there is no subscription and you pay only for what the AI uses. Use it on a staging site with backups. Requires WordPress 7 and your own AI provider API key.
+* Tweak: The write-file ability now rejects base64 and binary payloads, and points agents to the upload-link ability for large uploads.
+* Minor Fixes
+
+v1.8.1 - 2026/07/03
+* Fix: The Claude Desktop one-click bundle (.mcpb) is not connecting on recent Claude Desktop versions, so manual configuration is shown by default for now while we look for a solution.
+
+v1.8.0 - 2026/06/30
+* New: Vormbyte Visual, an experimental browser workspace where you watch your AI agent work on WordPress in real time. Instead of working out of sight, the agent opens your pages and the block editor in front of you. For development and staging sites. Elementor and Bricks support comes with Vormbyte Pro.
+* Minor Fixes
+
+v1.7.1 - 2026/06/18
+* New: Claude Desktop gets a one-click .mcpb bundle download that installs the MCP server without editing any config files.
+* New: The Connect page now asks you to pick your AI client first; the connection options (prompt, bundle, or manual JSON) appear only after that choice, tailored to the selected client.
+* Tweak: When AI Abilities are disabled, existing application passwords are listed below step 1 without the step 2 framing, so the setup flow is clearer.
+* Fix: WordPress 6.9 ability discovery no longer emits PHP notices for missing or late-registered ability categories.
+* Minor Fixes
+
+v1.7.0 - 2026/06/12
+* New: A Context page for giving AI agents stable, site-wide guidance they apply automatically on this site. If you also run Vormbyte Pro, this page appears once Pro is updated to 1.3.0 or later; until then Pro keeps providing custom instructions as before.
+* Minor Fixes
+
+v1.6.0 - 2026/06/01
+* New: A new Abilities Hub screen lists every ability available to AI agents, grouped by the plugin that provides it, so you can enable or disable each one individually.
+* Tweak: Gutenberg pages built by AI agents now consistently use native and third-party blocks, so the result stays editable in the block editor; previously they could sometimes place content in a single raw HTML block.
+* Tweak: Before building or restructuring a page, AI agents now confirm which approach you want to use (a page builder, the block editor, or the theme itself) instead of assuming one.
+* Tweak: The Configuration page now notes that the paste-to-agent prompt includes your application password, and links to the manual configuration if you prefer not to share it with the AI.
+* Minor Fixes
+
+v1.5.1 - 2026/05/28
+* Tweak: The Vormbyte admin bar item now includes a dropdown toggle for turning AI Abilities on and off.
+* Minor Fixes
+
+v1.5.0 - 2026/05/27
+* New: In the Gutenberg Block Editor AI agents can now create and edit third party blocks valid from the first save
+* Tweak: Large-file uploads and browser admin access now use header-based handoff flows, so generated endpoint URLs stay short and easier to reuse in tool commands.
+
+v1.4.0 - 2026/05/26
+* New: Gutenberg (Block Editor) support, AI agents can now author and edit posts, pages, templates, template parts, and navigation menus, with native blocks valid from the first save
+* New: The Configuration page now includes direct HTTP snippets for Claude and Codex clients that cannot use the default npx-based MCP setup.
+* Minor Fixes
+
+v1.3.0 - 2026/05/21
+* New: Skills. Create or upload Markdown playbooks your AI follows automatically on this site, including a built-in skill that teaches your AI to write new ones.
+* New: AI agents can now create short-lived, one-time WordPress admin access links for browser automation tools, without exposing admin passwords.
+* Tweak: The Sandbox files page now uses the same compact card layout as the Skills page, with an Enable/Disable toggle and file-type badges.
+* Minor Fixes
+
+v1.2.1 - 2026/05/20
+* New: AI agents can now run WP-CLI commands through Vormbyte, with support for background jobs.
+* Minor Fixes
+
+v1.2.0 - 2026/05/13
+* New: AI agents can now upload plugin, theme, media, and other large files more easily.
+* New: A "paste to your AI agent" block on the Configuration page lets you copy a short description and have your AI client set up the MCP server connection for you, instead of editing JSON config files by hand.
+* New: The Configuration page warns when AI Abilities are turned on against what looks like a production site, with a reminder to keep them on staging or development copies only.
+* New: If you already have a saved application password (for example from a password manager), a new field on the Configuration page lets you paste it directly and skip generating a new one.
+* New: Local HTTPS development sites with self-signed certificates are detected automatically, and the generated client configs include the small flag Node.js needs to accept the certificate.
+* New: When the site is on a local hostname over HTTP, the Application Passwords notice now explains the exact line to add to wp-config.php to enable them.
+* Tweak: Redesigned the Configuration page into three numbered cards (Enable AI Abilities, Application Password, Connect Your AI Client) so the setup reads top to bottom.
+* Tweak: The MCP endpoint is now /wp-json/mcp/vormbyte. The previous /wp-json/mcp/mcp-adapter-default-server keeps working for AI clients that are already connected, no action needed.
+* Tweak: Per-client JSON snippets are collapsed by default behind a "Need the JSON config for a specific client?" link, since most setups now use the paste-to-agent block.
+* Tweak: AI agents working with data-modeling plugins (ACF, JetEngine, Pods, ACPT, Meta Box, Toolset, CPT UI, WooCommerce, etc.) are now told to use the plugin's own UI or API instead of registering post types, taxonomies, or fields directly in PHP, avoiding broken slugs and labels later.
+* Fix: PHP notices about duplicate ability registration on every wp-cron tick no longer appear in the error log.
+* Minor Fixes
+
+v1.1.2 - 2026/04/23
+* New: Configuration instructions for the OpenAI Codex CLI MCP client.
+* Fix: The Vormbyte ON admin bar indicator now only appears for administrators who can manage Vormbyte settings.
+* Minor Fixes
+
+v1.1.1 - 2026/04/22
+* Improvement: The Configuration page now detects when Application Passwords have been disabled by a security plugin (e.g. Solid Security, Wordfence) and shows a clear explanation instead of the generic HTTPS/local-environment message.
+* Improvement: Moved the AI Abilities on/off switch to the top of the Configuration page making clear they are needed for the MCP to work.
+* Improvement: When an AI agent sends invalid input, the error message now includes the specific per-property details the agent needs to correct it — so the agent can fix its own mistake in one try instead of guessing or asking the user.
+* Minor Fixes
+
+v1.1.0 - 2026/04/20
+* Fix: Recursive directory listings no longer fail when a folder contains a broken shortcut (symlink) — the listing now skips over it gracefully and includes the rest of the results.
+* Improvement: AI agents now reliably receive site context and usage instructions, even on MCP clients that previously ignored them during connection setup.
+* Improvement: Updated the bundled MCP Adapter library to version 0.5.0.
+* Fix: Ability failures are now surfaced as proper errors instead of being masked by a success response.
+* Minor Fixes
+
+v1.0.3 - 2026/04/02
+* Fix: Sandbox crash detection failed to detect fatal errors thrown indirectly from WordPress core or third-party code called by a sandbox file.
+
+v1.0.2 - 2026/04/01
+* Fix: Sandbox crash detection now uses a shutdown handler instead of a file marker, eliminating false positives from concurrent requests and external code calling exit().
+* Fix: Execute-ability coerced empty parameters (`{}`) to `null`, causing "input is not of type object" validation errors for abilities with all-optional properties.
+* Remove: PHP syntax validation from write-file and edit-file abilities — the sandbox already catches syntax errors at runtime, making pre-write validation redundant.
+* Minor Fixes
+
+v1.0.1 - 2026/03/26
+* New: Configuration instructions for 7 additional MCP clients: Cline, Roo Code, Kilo Code, GitHub Copilot, Amazon Q, Gemini CLI, and Antigravity.
+* New: MCP server name now defaults to the site domain for easier multi-site setups.
+* New: MCP server instructions include site locale and multilingual context.
+* Fix: Admin page header spacing.
+
+v1.0.0 - 2026/03/10
+* 🎉 First stable release.
+
+v1.0.0-rc4 - 2026/03/06
+* New: Domain-locking for AI abilities — the site hostname is stored when abilities are enabled. If the domain changes (e.g. a staging database is restored on a different server), abilities automatically deactivate and an admin notice explains what happened.
+* New: MCP server instructions — AI agents now receive context about the WordPress environment (version, active plugins) during MCP initialization.
+* Minor fixes.
+
+v1.0.0-rc3 - 2026/03/03
+* Fix: Shell quoting in the Claude Code mcp add command — the MCP server URL and other env values were not properly quoted, causing syntax errors when pasting the generated command.
+
+v1.0.0-rc2 - 2026/02/26
+* Minor fixes.
+
+v1.0.0-rc1 - 2026/02/26
+* Release candidate for 1.0.
+* Eight abilities: execute-php, read-file, write-file, edit-file, delete-file, disable-file, enable-file, list-directory.
+* PHP sandbox with crash recovery and safe mode.

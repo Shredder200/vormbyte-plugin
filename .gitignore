@@ -1,0 +1,52 @@
+.mcp.json
+/vendor
+node_modules/
+/build/sync-vendor/
+*.swp
+
+# Build artifacts
+/build/
+# Compiled assets are generated (webpack); static assets below are re-included.
+/includes/assets/*
+!/includes/assets/sandbox.css
+!/includes/assets/hub.css
+!/includes/assets/hub.js
+!/includes/assets/admin-notices.js
+!/includes/assets/admin-list.css
+/vormbyte-visual/dist/
+
+# IDE
+.idea
+.vscode
+
+# Codex 
+.codex
+.codex-tmp
+
+# Internal docs
+/docs/
+
+# Claude Code sandbox artifacts
+.bash_profile
+.bashrc
+.gitconfig
+.gitmodules
+.profile
+.ripgreprc
+.zprofile
+.zshrc
+HEAD
+config
+hooks
+objects
+refs
+/.claude/*
+!/.claude/skills
+.playwright-mcp/
+includes/skills/dev-mock.php
+.superpowers/
+node_modules/
+.phpunit.result.cache
+
+# Python bytecode cache
+__pycache__/

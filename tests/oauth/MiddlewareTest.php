@@ -1,0 +1,999 @@
+<?php
+// SPDX-FileCopyrightText: 2026 Ovation S.r.l. <dev@novamira.ai>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+declare(strict_types=1);
+
+use League\OAuth2\Server\Exception\OAuthServerException;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+use PHPUnit\Framework\TestCase;
+
+if (!function_exists('vormbyte_current_user_can_manage')) {
+    function vormbyte_current_user_can_manage(): bool
+    {
+        $GLOBALS['vormbyte_test_current_user_can_manage_calls'] =
+            ($GLOBALS['vormbyte_test_current_user_can_manage_calls'] ?? 0) + 1;
+        return (bool) ($GLOBALS['vormbyte_test_current_user_can_manage'] ?? false);
+    }
+}
+if (!function_exists('home_url')) {
+    function home_url(string $path = ''): string
+    {
+        return ((string) ($GLOBALS['vormbyte_test_home'] ?? 'https://example.test')) . $path;
+    }
+}
+if (!function_exists('rest_url')) {
+    function rest_url(string $path = ''): string
+    {
+        if (($GLOBALS['vormbyte_test_rest_url_throws'] ?? false) === true) {
+            throw new RuntimeException('REST URL generation failed.');
+        }
+        return 'https://example.test/wp-json/' . ltrim($path, characters: '/');
+    }
+}
+if (!function_exists('get_option')) {
+    function get_option(string $name, mixed $default_value = false): mixed
+    {
+        return $GLOBALS['vormbyte_test_options'][$name] ?? $default_value;
+    }
+}
+if (!function_exists('is_multisite')) {
+    function is_multisite(): bool
+    {
+        return false;
+    }
+}
+if (!function_exists('add_action')) {
+    function add_action(
+        string $hook_name,
+        callable|string $callback,
+        int $priority = 10,
+        int $accepted_args = 1,
+    ): bool {
+        $GLOBALS['vormbyte_test_actions'][] = [$hook_name, $callback, $priority, $accepted_args];
+        return true;
+    }
+}
+if (!function_exists('add_filter')) {
+    function add_filter(
+        string $hook_name,
+        callable|string $callback,
+        int $priority = 10,
+        int $accepted_args = 1,
+    ): bool {
+        $GLOBALS['vormbyte_test_filters'][] = [$hook_name, $callback, $priority, $accepted_args];
+        return true;
+    }
+}
+if (!function_exists('wp_set_current_user')) {
+    function wp_set_current_user(int $user_id): int
+    {
+        $GLOBALS['vormbyte_test_current_user_id'] = $user_id;
+        return $user_id;
+    }
+}
+if (!function_exists('get_current_user_id')) {
+    function get_current_user_id(): int
+    {
+        // Lazy resolution, as wp_get_current_user() runs determine_current_user on first use.
+        $resolve = $GLOBALS['vormbyte_test_resolve_current_user'] ?? null;
+        if ($resolve instanceof Closure) {
+            unset($GLOBALS['vormbyte_test_resolve_current_user']);
+            $resolve();
+        }
+        return (int) ($GLOBALS['vormbyte_test_current_user_id'] ?? 0);
+    }
+}
+
+if (!class_exists('WP_Error')) {
+    class WP_Error
+    {
+        /** @param array<string, mixed> $data */
+        public function __construct(
+            private string $code = '',
+            private string $message = '',
+            private array $data = [],
+        ) {
+        }
+
+        public function get_error_code(): string
+        {
+            return $this->code;
+        }
+
+        public function get_error_message(): string
+        {
+            return $this->message;
+        }
+
+        /** @return array<string, mixed> */
+        public function get_error_data(): array
+        {
+            return $this->data;
+        }
+    }
+}
+if (!class_exists('WP_Ability')) {
+    class WP_Ability
+    {
+        /** @param array<string, mixed> $meta */
+        public function __construct(
+            private array $meta,
+            private mixed $result = null,
+            private string $name = '',
+            private string $category = '',
+        ) {}
+
+        public function get_name(): string
+        {
+            return $this->name;
+        }
+
+        public function get_category(): string
+        {
+            return $this->category;
+        }
+
+        public function get_meta_item(string $key, mixed $default = null): mixed
+        {
+            return $this->meta[$key] ?? $default;
+        }
+
+        public function execute(mixed $input = null): mixed
+        {
+            return $this->result instanceof Closure ? ($this->result)($input) : $this->result;
+        }
+    }
+}
+if (!function_exists('wp_get_ability')) {
+    function wp_get_ability(string $name): mixed
+    {
+        return $GLOBALS['vormbyte_test_abilities'][$name] ?? null;
+    }
+}
+if (!class_exists('WP_REST_Request')) {
+    class WP_REST_Request implements ArrayAccess
+    {
+        /** @param array<string, mixed>|null $json */
+        public function __construct(
+            private string $method = 'GET',
+            private string $route = '',
+            private string $body = '',
+            private ?array $json = null,
+            private array $params = [],
+        ) {
+        }
+
+        public function get_route(): string
+        {
+            return $this->route;
+        }
+
+        public function get_method(): string
+        {
+            return $this->method;
+        }
+
+        public function get_body(): string
+        {
+            return $this->body;
+        }
+
+        /** @return array<string, mixed>|null */
+        public function get_json_params(): ?array
+        {
+            return $this->json;
+        }
+
+        /** @return array<string, mixed> */
+        public function get_query_params(): array
+        {
+            return $this->params;
+        }
+
+        public function offsetExists(mixed $offset): bool
+        {
+            return is_string($offset) && array_key_exists($offset, $this->params);
+        }
+
+        public function offsetGet(mixed $offset): mixed
+        {
+            return is_string($offset) ? ($this->params[$offset] ?? null) : null;
+        }
+
+        public function offsetSet(mixed $offset, mixed $value): void
+        {
+            if (is_string($offset)) {
+                $this->params[$offset] = $value;
+            }
+        }
+
+        public function offsetUnset(mixed $offset): void
+        {
+            if (is_string($offset)) {
+                unset($this->params[$offset]);
+            }
+        }
+    }
+}
+if (!class_exists('WP_REST_Response')) {
+    class WP_REST_Response
+    {
+        /** @var array<string, string> */
+        public array $headers = [];
+
+        public function __construct(public mixed $data = null, public int $status = 200)
+        {
+        }
+
+        public function header(string $name, string $value, bool $replace = true): void
+        {
+            if (!$replace && isset($this->headers[$name])) {
+                $this->headers[$name] .= ', ' . $value;
+                return;
+            }
+
+            $this->headers[$name] = $value;
+        }
+
+        public function link_header(string $rel, string $link): void
+        {
+            $this->header('Link', '<' . $link . '>; rel="' . $rel . '"', replace: false);
+        }
+
+        /** @return array<string, string> */
+        public function get_headers(): array
+        {
+            return $this->headers;
+        }
+
+        /** @param array<string, string> $headers */
+        public function set_headers(array $headers): void
+        {
+            $this->headers = $headers;
+        }
+
+        public function get_data(): mixed
+        {
+            return $this->data;
+        }
+
+        public function set_data(mixed $data): void
+        {
+            $this->data = $data;
+        }
+
+        public function get_status(): int
+        {
+            return $this->status;
+        }
+    }
+}
+if (!function_exists('rest_convert_error_to_response')) {
+    function rest_convert_error_to_response(WP_Error $error): WP_REST_Response
+    {
+        $data = $error->get_error_data();
+
+        return new WP_REST_Response([
+            'code' => $error->get_error_code(),
+            'message' => $error->get_error_message(),
+            'data' => $data,
+        ], isset($data['status']) ? (int) $data['status'] : 500);
+    }
+}
+
+if (!defined('ABSPATH')) {
+    define('ABSPATH', '/');
+}
+
+require_once __DIR__ . '/../../includes/oauth/endpoints/discovery.php';
+require_once __DIR__ . '/../../includes/oauth/bootstrap.php';
+require_once __DIR__ . '/../../includes/oauth/middleware.php';
+
+final class MiddlewareTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        $GLOBALS['vormbyte_test_current_user_can_manage'] = true;
+        $GLOBALS['vormbyte_test_current_user_id'] = 0;
+        $GLOBALS['vormbyte_test_filters'] = [];
+        $GLOBALS['vormbyte_test_abilities'] = [
+            'vormbyte/read-file' => new WP_Ability([
+                'show_in_rest' => true,
+                'annotations' => ['readonly' => true],
+            ]),
+            'vormbyte/write-file' => new WP_Ability([
+                'show_in_rest' => true,
+                'annotations' => ['readonly' => false],
+            ]),
+            'vormbyte/unannotated' => new WP_Ability(['show_in_rest' => true]),
+        ];
+        \Vormbyte\OAuth\Middleware\reset_request_context();
+    }
+
+    protected function tearDown(): void
+    {
+        unset(
+            $_GET['rest_route'],
+            $_SERVER['REQUEST_URI'],
+            $_SERVER['HTTP_AUTHORIZATION'],
+            $_SERVER['REDIRECT_HTTP_AUTHORIZATION'],
+            $GLOBALS['vormbyte_test_current_user_can_manage'],
+            $GLOBALS['vormbyte_test_current_user_id'],
+            $GLOBALS['vormbyte_test_filters'],
+            $GLOBALS['vormbyte_test_home'],
+            $GLOBALS['vormbyte_test_abilities'],
+            $GLOBALS['vormbyte_test_rest_url_throws'],
+            $GLOBALS['vormbyte_test_resolve_current_user'],
+        );
+        \Vormbyte\OAuth\Middleware\reset_request_context();
+    }
+
+    public function testWwwAuthenticateHeaderAdvertisesTheRootMetadataUrl(): void
+    {
+        $GLOBALS['vormbyte_test_home'] = 'https://example.test';
+        self::assertSame(
+            'Bearer resource_metadata="https://example.test/.well-known/oauth-protected-resource", scope="full_access"',
+            \Vormbyte\OAuth\Middleware\www_authenticate_header(),
+        );
+    }
+
+    public function testWwwAuthenticateHeaderCarriesTheSubdirectoryPath(): void
+    {
+        // The centralized URL must stay byte-for-byte what the site advertises: on a subdirectory
+        // install the challenge points at /subsite/.well-known/..., which this install serves.
+        $GLOBALS['vormbyte_test_home'] = 'https://example.com/subsite';
+        self::assertSame(
+            'Bearer resource_metadata="https://example.com/subsite/.well-known/oauth-protected-resource", scope="full_access"',
+            \Vormbyte\OAuth\Middleware\www_authenticate_header(),
+        );
+    }
+
+    public function testRegistersEarlyIdentityAndAuthoritativeLateAuthorizationHooks(): void
+    {
+        \Vormbyte\OAuth\Middleware\register();
+
+        self::assertContains(
+            ['determine_current_user', 'Vormbyte\\OAuth\\Middleware\\resolve_bearer_identity', 30, 1],
+            $GLOBALS['vormbyte_test_filters'],
+        );
+        self::assertContains(
+            ['rest_authentication_errors', 'Vormbyte\\OAuth\\Middleware\\reject_invalid_bearer', 5, 1],
+            $GLOBALS['vormbyte_test_filters'],
+        );
+        self::assertContains(
+            ['rest_request_before_callbacks', 'Vormbyte\\OAuth\\Middleware\\authorize_routed_request', 5, 3],
+            $GLOBALS['vormbyte_test_filters'],
+        );
+        self::assertContains(
+            ['rest_request_after_callbacks', 'Vormbyte\\OAuth\\Middleware\\attach_www_authenticate_challenge', 5, 3],
+            $GLOBALS['vormbyte_test_filters'],
+        );
+        self::assertCount(4, $GLOBALS['vormbyte_test_filters']);
+    }
+
+    public function testMcpRouteMatchesOnlyTheOauthServer(): void
+    {
+        self::assertTrue(\Vormbyte\OAuth\Middleware\is_mcp_route('/mcp/vormbyte-oauth'));
+        self::assertTrue(\Vormbyte\OAuth\Middleware\is_mcp_route('/mcp/vormbyte-oauth/tools/list'));
+        self::assertFalse(\Vormbyte\OAuth\Middleware\is_mcp_route('/mcp/vormbyte'));
+        self::assertFalse(\Vormbyte\OAuth\Middleware\is_mcp_route('/mcp/mcp-adapter-default-server'));
+    }
+
+    /** @param array{0: string, 1: string, 2: bool} $case */
+    #[DataProvider('abilityRouteProvider')]
+    public function testChallengeRoutesUseExactRouteAndMethod(array $case): void
+    {
+        [$method, $route, $challenged] = $case;
+
+        self::assertSame($challenged, \Vormbyte\OAuth\Middleware\is_oauth_challenge_route($route, $method));
+    }
+
+    /** @return iterable<string, array{array{string, string, bool}}> */
+    public static function abilityRouteProvider(): iterable
+    {
+        yield 'list get' => [['GET', '/wp-abilities/v1/abilities', true]];
+        yield 'list head' => [['HEAD', '/wp-abilities/v1/abilities', true]];
+        yield 'list post' => [['POST', '/wp-abilities/v1/abilities', false]];
+        yield 'item' => [['GET', '/wp-abilities/v1/abilities/vormbyte/read-file', true]];
+        yield 'nested item' => [['GET', '/wp-abilities/v1/abilities/vendor/group/name', true]];
+        yield 'item head excluded' => [['HEAD', '/wp-abilities/v1/abilities/vormbyte/read-file', false]];
+        yield 'shim' => [['POST', '/vormbyte/v1/abilities/vormbyte/read-file/run', true]];
+        yield 'nested shim' => [['POST', '/vormbyte/v1/abilities/vendor/group/name/run', true]];
+        yield 'shim get excluded' => [['GET', '/vormbyte/v1/abilities/vormbyte/read-file/run', false]];
+        yield 'lookalike excluded' => [['POST', '/vormbyte/v1/abilities/vormbyte/read-file/run/extra', false]];
+    }
+
+    public function testMissingBearerLeavesWordPressAuthenticationUnchanged(): void
+    {
+        $called = false;
+        $user = \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            '',
+            static function () use (&$called): array {
+                $called = true;
+                return ['user_id' => 7, 'scopes' => ['mcp']];
+            },
+            is_rest_request: true,
+        );
+
+        self::assertFalse($user);
+        self::assertFalse($called);
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_authentication_error());
+    }
+
+    public function testForeignOpaqueBearerLeavesAuthenticationUntouched(): void
+    {
+        $called = false;
+        $resolved = \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            'Bearer cbmcp_opaque-token',
+            static function () use (&$called): array {
+                $called = true;
+                return ['user_id' => 73, 'scopes' => ['mcp']];
+            },
+            is_rest_request: true,
+        );
+        $prior = new WP_Error('another_auth_error', 'Unrelated authentication result.', ['status' => 403]);
+
+        self::assertFalse($resolved);
+        self::assertFalse($called);
+        self::assertSame(0, get_current_user_id());
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_oauth_identity());
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_authentication_error());
+        self::assertSame($prior, \Vormbyte\OAuth\Middleware\reject_invalid_bearer($prior));
+    }
+
+    public function testForeignJwtAudienceLeavesAuthenticationUntouched(): void
+    {
+        $called = false;
+        $resolved = \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            'Bearer ' . $this->jwtForAudience('https://other.test/oauth-resource'),
+            static function () use (&$called): array {
+                $called = true;
+                return ['user_id' => 73, 'scopes' => ['mcp']];
+            },
+            is_rest_request: true,
+        );
+
+        self::assertFalse($resolved);
+        self::assertFalse($called);
+        self::assertSame(0, get_current_user_id());
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_oauth_identity());
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_authentication_error());
+        self::assertNull(\Vormbyte\OAuth\Middleware\reject_invalid_bearer(null));
+    }
+
+    public function testEmptyBearerLeavesUnrelatedRouteAuthenticationUntouched(): void
+    {
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ';
+        $resolved = \Vormbyte\OAuth\Middleware\resolve_bearer_identity(false);
+        $prior = new WP_Error('another_auth_error', 'Unrelated authentication result.', ['status' => 403]);
+        $routed = \Vormbyte\OAuth\Middleware\authorize_routed_request(
+            null,
+            null,
+            new WP_REST_Request('GET', '/wp/v2/posts'),
+        );
+
+        self::assertFalse($resolved);
+        self::assertSame(0, get_current_user_id());
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_oauth_identity());
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_authentication_error());
+        self::assertSame($prior, \Vormbyte\OAuth\Middleware\reject_invalid_bearer($prior));
+        self::assertNull($routed);
+    }
+
+    public function testRejectedVormbyteTokenFailsClosed(): void
+    {
+        $user = \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            'Bearer ' . $this->jwtForAudience(\Vormbyte\OAuth\resource_identifier()),
+            static function (): array {
+                throw OAuthServerException::accessDenied('Simulated invalid token.');
+            },
+            is_rest_request: true,
+        );
+
+        self::assertFalse($user);
+        self::assertSame(0, get_current_user_id());
+        $error = \Vormbyte\OAuth\Middleware\reject_invalid_bearer(null);
+        self::assertInstanceOf(WP_Error::class, $error);
+        self::assertSame('rest_oauth_error', $error->get_error_code());
+        self::assertSame(401, $error->get_error_data()['status']);
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testRejectionResolvesAUserNothingHasResolvedYet(): void
+    {
+        // serve_request() cleared the anonymous user cached before REST_REQUEST was defined, and no
+        // callback has asked for the user again by the time the authentication errors are checked.
+        $GLOBALS['vormbyte_test_resolve_current_user'] = function (): void {
+            \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+                false,
+                'Bearer ' . $this->jwtForAudience(\Vormbyte\OAuth\resource_identifier()),
+                static function (): array {
+                    throw OAuthServerException::accessDenied('Simulated invalid token.');
+                },
+                is_rest_request: true,
+            );
+        };
+
+        $error = \Vormbyte\OAuth\Middleware\reject_invalid_bearer(null);
+
+        self::assertInstanceOf(WP_Error::class, $error);
+        self::assertSame('rest_oauth_error', $error->get_error_code());
+        self::assertSame(401, $error->get_error_data()['status']);
+    }
+
+    public function testSingleElementAudienceArrayIsClaimed(): void
+    {
+        $resolved = \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            'Bearer ' . $this->jwtForAudience([\Vormbyte\OAuth\resource_identifier()]),
+            static fn(): array => ['user_id' => 73, 'scopes' => ['mcp']],
+            is_rest_request: true,
+        );
+
+        self::assertSame(73, $resolved);
+        self::assertSame(73, get_current_user_id());
+        self::assertSame(
+            ['user_id' => 73, 'scopes' => ['mcp']],
+            \Vormbyte\OAuth\Middleware\request_oauth_identity(),
+        );
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testResourceIdentifierFailureIsContained(): void
+    {
+        $token = $this->jwtForAudience('https://example.test/wp-json/mcp/vormbyte-oauth');
+        $GLOBALS['vormbyte_test_rest_url_throws'] = true;
+        $called = false;
+        $resolved = \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            'Bearer ' . $token,
+            static function () use (&$called): array {
+                $called = true;
+                return ['user_id' => 73, 'scopes' => ['mcp']];
+            },
+            is_rest_request: true,
+        );
+
+        self::assertFalse($resolved);
+        self::assertFalse($called);
+        self::assertSame(0, get_current_user_id());
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_oauth_identity());
+        $error = \Vormbyte\OAuth\Middleware\reject_invalid_bearer(null);
+        self::assertInstanceOf(WP_Error::class, $error);
+        self::assertSame('rest_oauth_error', $error->get_error_code());
+        self::assertSame(500, $error->get_error_data()['status']);
+    }
+
+    public function testValidBearerSetsIdentityBeforeRestHardeningRuns(): void
+    {
+        $user = $this->authenticateOauthUser();
+
+        self::assertSame(73, $user);
+        self::assertSame(73, get_current_user_id());
+        self::assertTrue($this->hardeningCallbackAllowsOnlyAuthenticatedRequests());
+        self::assertNull(\Vormbyte\OAuth\Middleware\reject_invalid_bearer(null));
+    }
+
+    public function testCookieAndApplicationPasswordIdentitiesAreNeverReplaced(): void
+    {
+        foreach ([41, 42] as $existingUser) {
+            $called = false;
+            $resolved = \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+                $existingUser,
+                'Bearer must-not-be-read',
+                static function () use (&$called): array {
+                    $called = true;
+                    return ['user_id' => 73, 'scopes' => ['mcp']];
+                },
+                is_rest_request: true,
+            );
+            self::assertSame($existingUser, $resolved);
+            self::assertFalse($called);
+            self::assertNull(\Vormbyte\OAuth\Middleware\request_oauth_identity());
+        }
+    }
+
+    public function testPreDispatchResultIsPreservedOnAnyRoute(): void
+    {
+        $_GET['rest_route'] = '/wp-abilities/v1/abilities';
+        $_SERVER['REQUEST_URI'] = '/wp-json/wp/v2/posts?rest_route=/wp-abilities/v1/abilities';
+        $this->authenticateOauthUser();
+        $preempted = new WP_REST_Response(['preempted' => true]);
+
+        self::assertSame($preempted, \Vormbyte\OAuth\Middleware\authorize_routed_request(
+            $preempted,
+            null,
+            new WP_REST_Request('GET', '/wp/v2/posts'),
+        ));
+    }
+
+    #[DataProvider('restRouteProvider')]
+    public function testValidBearerIsAcceptedOnEveryRestRoute(string $method, string $route): void
+    {
+        $this->authenticateOauthUser();
+
+        self::assertNull(\Vormbyte\OAuth\Middleware\authorize_routed_request(
+            null,
+            null,
+            new WP_REST_Request($method, $route),
+        ));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function restRouteProvider(): iterable
+    {
+        yield 'own user' => ['GET', '/wp/v2/users/me'];
+        yield 'create post' => ['POST', '/wp/v2/posts'];
+        yield 'settings' => ['POST', '/wp/v2/settings'];
+        yield 'plugins' => ['GET', '/wp/v2/plugins'];
+        yield 'batch' => ['POST', '/batch/v1'];
+        yield 'third-party globals' => ['GET', '/elementor/v1/globals'];
+        yield 'upload' => ['POST', '/vormbyte/v1/upload/example'];
+        yield 'temporary administrator' => ['POST', '/vormbyte/v1/admin-access'];
+        yield 'canonical Application Password MCP' => ['POST', '/mcp/vormbyte'];
+        yield 'legacy MCP' => ['POST', '/mcp/mcp-adapter-default-server'];
+        yield 'OAuth MCP' => ['POST', '/mcp/vormbyte-oauth'];
+        yield 'ability run' => ['POST', '/vormbyte/v1/abilities/vormbyte/write-file/run'];
+    }
+
+    public function testNestedDispatchUnderTheTokenIsAccepted(): void
+    {
+        // An ability run that dispatches internal REST requests (Elementor resolving its globals
+        // through rest_do_request(), for example) passes the same filter once per request.
+        $this->authenticateOauthUser();
+
+        foreach ([
+            new WP_REST_Request('POST', '/vormbyte/v1/abilities/vormbyte/elementor-set-content/run'),
+            new WP_REST_Request('GET', '/elementor/v1/globals'),
+            new WP_REST_Request('GET', '/wp/v2/types/post'),
+            new WP_REST_Request('POST', '/vormbyte/v1/abilities/vormbyte/elementor-set-content/run'),
+        ] as $request) {
+            self::assertNull(\Vormbyte\OAuth\Middleware\authorize_routed_request(null, null, $request));
+        }
+    }
+
+    public function testInternalRequestUnderAnotherUserIsLeftToTheRoute(): void
+    {
+        $this->authenticateOauthUser();
+        $GLOBALS['vormbyte_test_current_user_can_manage'] = false;
+        $GLOBALS['vormbyte_test_current_user_id'] = 0;
+        $calls = $GLOBALS['vormbyte_test_current_user_can_manage_calls'] ?? 0;
+
+        self::assertNull(\Vormbyte\OAuth\Middleware\authorize_routed_request(
+            null,
+            null,
+            new WP_REST_Request('GET', '/wp/v2/posts'),
+        ));
+        self::assertSame($calls, $GLOBALS['vormbyte_test_current_user_can_manage_calls'] ?? 0);
+    }
+
+    public function testTokenIsIgnoredOutsideARestRequest(): void
+    {
+        $called = false;
+        $resolved = \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            'Bearer ' . $this->jwtForAudience(\Vormbyte\OAuth\resource_identifier()),
+            static function () use (&$called): array {
+                $called = true;
+                return ['user_id' => 73, 'scopes' => ['full_access']];
+            },
+            is_rest_request: false,
+        );
+
+        self::assertFalse($resolved);
+        self::assertFalse($called);
+        self::assertSame(0, get_current_user_id());
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_oauth_identity());
+        // Anonymous, not refused: no 401 is waiting for a later REST check.
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_authentication_error());
+    }
+
+    public function testInvalidTokenOutsideARestRequestIsNotRefused(): void
+    {
+        $resolved = \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            'Bearer ' . $this->jwtForAudience(\Vormbyte\OAuth\resource_identifier()),
+            static function (): array {
+                throw OAuthServerException::accessDenied('Simulated invalid token.');
+            },
+            is_rest_request: false,
+        );
+
+        self::assertFalse($resolved);
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_authentication_error());
+    }
+
+    public function testEarlyAnonymousResolutionIsRedoneForTheRestRequest(): void
+    {
+        $token = 'Bearer ' . $this->jwtForAudience(\Vormbyte\OAuth\resource_identifier());
+        $validator = static fn(): array => ['user_id' => 73, 'scopes' => ['mcp']];
+
+        // A plugin asked for the current user at init, before REST_REQUEST was defined.
+        self::assertFalse(\Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            $token,
+            $validator,
+            is_rest_request: false,
+        ));
+        // WP_REST_Server::serve_request() cleared the cached anonymous user and resolved it again.
+        self::assertSame(73, \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            $token,
+            $validator,
+            is_rest_request: true,
+        ));
+        self::assertSame(['user_id' => 73, 'scopes' => ['mcp']], \Vormbyte\OAuth\Middleware\request_oauth_identity());
+    }
+
+    public function testProductionEntryPointIgnoresTheTokenOutsideRest(): void
+    {
+        self::assertFalse(defined('REST_REQUEST'));
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $this->jwtForAudience(\Vormbyte\OAuth\resource_identifier());
+
+        self::assertFalse(\Vormbyte\OAuth\Middleware\resolve_bearer_identity(false));
+        self::assertSame(0, get_current_user_id());
+        self::assertNull(\Vormbyte\OAuth\Middleware\request_authentication_error());
+    }
+
+    public function testEveryRouteStillRequiresCurrentManagementPermission(): void
+    {
+        foreach ([
+            new WP_REST_Request('GET', '/wp-abilities/v1/abilities'),
+            new WP_REST_Request('POST', '/wp/v2/posts'),
+            new WP_REST_Request('GET', '/wp/v2/users/me'),
+        ] as $request) {
+            $this->authenticateOauthUser();
+            $GLOBALS['vormbyte_test_current_user_can_manage'] = false;
+
+            $result = \Vormbyte\OAuth\Middleware\authorize_routed_request(null, null, $request);
+
+            self::assertInstanceOf(WP_Error::class, $result);
+            self::assertSame('rest_oauth_error', $result->get_error_code());
+            self::assertSame(403, $result->get_error_data()['status']);
+        }
+    }
+
+    public function testFullAccessGrantAllowsMcpAndEveryAbilityRoute(): void
+    {
+        $this->authenticateOauthUser(['mcp']);
+
+        foreach ([
+            new WP_REST_Request('POST', '/mcp/vormbyte-oauth'),
+            new WP_REST_Request('GET', '/wp-abilities/v1/abilities'),
+            new WP_REST_Request('GET', '/wp-abilities/v1/abilities/vormbyte/read-file'),
+            new WP_REST_Request('POST', '/vormbyte/v1/abilities/vormbyte/read-file/run'),
+            new WP_REST_Request('POST', '/vormbyte/v1/abilities/vormbyte/write-file/run'),
+            new WP_REST_Request('POST', '/vormbyte/v1/abilities/vormbyte/unannotated/run'),
+        ] as $request) {
+            self::assertNull(\Vormbyte\OAuth\Middleware\authorize_routed_request(null, null, $request));
+        }
+    }
+
+    public function testEveryScopeSynonymIsAFullAccessGrant(): void
+    {
+        foreach (['full_access', 'mcp', 'abilities', 'abilities:read', 'read', 'write'] as $scope) {
+            foreach ([
+                new WP_REST_Request('POST', '/mcp/vormbyte-oauth'),
+                new WP_REST_Request('POST', '/vormbyte/v1/abilities/vormbyte/write-file/run'),
+                new WP_REST_Request('POST', '/wp/v2/posts'),
+            ] as $request) {
+                $this->authenticateOauthUser([$scope]);
+                self::assertNull(\Vormbyte\OAuth\Middleware\authorize_routed_request(null, null, $request));
+            }
+        }
+    }
+
+    public function testEveryProtectedRouteChallengesForTheSingleFullAccessScope(): void
+    {
+        foreach ([
+            ['GET', '/wp-abilities/v1/abilities'],
+            ['POST', '/vormbyte/v1/abilities/vormbyte/read-file/run'],
+            ['POST', '/vormbyte/v1/abilities/vormbyte/write-file/run'],
+            ['POST', '/mcp/vormbyte-oauth'],
+        ] as [$method, $route]) {
+            self::assertTrue(\Vormbyte\OAuth\Middleware\is_oauth_challenge_route($route, $method));
+        }
+        self::assertFalse(\Vormbyte\OAuth\Middleware\is_oauth_challenge_route('/wp/v2/posts', 'GET'));
+        self::assertNull(\Vormbyte\OAuth\Middleware\challenge_unauthenticated(
+            null,
+            null,
+            new WP_REST_Request('GET', '/wp/v2/posts'),
+        ));
+
+        $response = $this->dispatchAgainstDenyingPermissionCallback(
+            new WP_REST_Request('POST', '/vormbyte/v1/abilities/vormbyte/write-file/run'),
+        );
+        self::assertInstanceOf(WP_REST_Response::class, $response);
+        self::assertStringContainsString('scope="full_access"', $response->headers['WWW-Authenticate']);
+    }
+
+    public function testUnauthenticatedChallengeSurvivesTheRoutePermissionCallback(): void
+    {
+        // A WP_REST_Response returned before callbacks does not short-circuit the route's own
+        // permission callback, so core would deny again and drop the challenge with the response.
+        $denial = \Vormbyte\OAuth\Middleware\challenge_unauthenticated(
+            null,
+            null,
+            new WP_REST_Request('POST', '/mcp/vormbyte-oauth'),
+        );
+        self::assertInstanceOf(WP_Error::class, $denial);
+        self::assertSame('rest_oauth_required', $denial->get_error_code());
+        self::assertSame(401, $denial->get_error_data()['status']);
+
+        $response = $this->dispatchAgainstDenyingPermissionCallback(new WP_REST_Request('POST', '/mcp/vormbyte-oauth'));
+        self::assertInstanceOf(WP_REST_Response::class, $response);
+        self::assertSame(401, $response->status);
+        self::assertSame('rest_oauth_required', $response->data['code']);
+        // RFC 6750 §3.1: a request that carried no credentials gets no `error` parameter.
+        self::assertSame(
+            'Bearer resource_metadata="https://example.test/.well-known/oauth-protected-resource", scope="full_access"',
+            $response->headers['WWW-Authenticate'],
+        );
+    }
+
+    public function testForeignBearerGetsTheNormalChallengeOnAVormbyteRoute(): void
+    {
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $this->jwtForAudience('https://other.test/oauth-resource');
+        \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            $_SERVER['HTTP_AUTHORIZATION'],
+            static fn(): array => ['user_id' => 73, 'scopes' => ['mcp']],
+            is_rest_request: true,
+        );
+
+        $response = $this->dispatchAgainstDenyingPermissionCallback(new WP_REST_Request('POST', '/mcp/vormbyte-oauth'));
+
+        self::assertInstanceOf(WP_REST_Response::class, $response);
+        self::assertSame(401, $response->status);
+        self::assertSame('rest_oauth_required', $response->data['code']);
+        self::assertSame(
+            'Bearer resource_metadata="https://example.test/.well-known/oauth-protected-resource", scope="full_access"',
+            $response->headers['WWW-Authenticate'],
+        );
+    }
+
+    public function testEmptyBearerGetsTheNormalChallengeOnAVormbyteRoute(): void
+    {
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ';
+        self::assertFalse(\Vormbyte\OAuth\Middleware\resolve_bearer_identity(false));
+
+        $response = $this->dispatchAgainstDenyingPermissionCallback(new WP_REST_Request('POST', '/mcp/vormbyte-oauth'));
+
+        self::assertInstanceOf(WP_REST_Response::class, $response);
+        self::assertSame(401, $response->status);
+        self::assertSame('rest_oauth_required', $response->data['code']);
+        self::assertSame(
+            'Bearer resource_metadata="https://example.test/.well-known/oauth-protected-resource", scope="full_access"',
+            $response->headers['WWW-Authenticate'],
+        );
+    }
+
+    public function testRoutedScopeDenialsCarryTheirChallengeOnTheResponseObject(): void
+    {
+        $this->authenticateOauthUser(['mcp']);
+        $GLOBALS['vormbyte_test_current_user_can_manage'] = false;
+        $forbidden = $this->dispatchAgainstDenyingPermissionCallback(
+            new WP_REST_Request('GET', '/wp/v2/posts'),
+        );
+        $GLOBALS['vormbyte_test_current_user_can_manage'] = true;
+        self::assertInstanceOf(WP_REST_Response::class, $forbidden);
+        self::assertSame(403, $forbidden->status);
+        self::assertStringContainsString('error="insufficient_scope"', $forbidden->headers['WWW-Authenticate']);
+
+        $this->authenticateOauthUser(['unknown']);
+        $insufficient = $this->dispatchAgainstDenyingPermissionCallback(
+            new WP_REST_Request('POST', '/vormbyte/v1/abilities/vormbyte/write-file/run'),
+        );
+        self::assertInstanceOf(WP_REST_Response::class, $insufficient);
+        self::assertSame('rest_oauth_error', $insufficient->data['code']);
+        self::assertStringContainsString('error="insufficient_scope"', $insufficient->headers['WWW-Authenticate']);
+        self::assertStringContainsString('scope="full_access"', $insufficient->headers['WWW-Authenticate']);
+    }
+
+    public function testChallengeAttachmentLeavesUnrelatedResultsUntouched(): void
+    {
+        $request = new WP_REST_Request('POST', '/mcp/vormbyte-oauth');
+
+        $success = new WP_REST_Response(['ok' => true]);
+        self::assertSame(
+            $success,
+            \Vormbyte\OAuth\Middleware\attach_www_authenticate_challenge($success, null, $request),
+        );
+
+        // Another plugin's denial, and Vormbyte's own pre-dispatch 401, must not be relabelled here.
+        foreach ([
+            new WP_Error('rest_forbidden', 'Sorry, you are not allowed to do that.', ['status' => 401]),
+            new WP_Error('rest_oauth_error', 'Invalid OAuth token subject.', ['status' => 401]),
+        ] as $error) {
+            self::assertSame(
+                $error,
+                \Vormbyte\OAuth\Middleware\attach_www_authenticate_challenge($error, null, $request),
+            );
+        }
+    }
+
+    public function testChallengeSkipsApplicationPasswordAndLegacyRoutes(): void
+    {
+        self::assertNull(\Vormbyte\OAuth\Middleware\challenge_unauthenticated(
+            null,
+            null,
+            new WP_REST_Request('POST', '/mcp/vormbyte'),
+        ));
+        self::assertNull(\Vormbyte\OAuth\Middleware\challenge_unauthenticated(
+            null,
+            null,
+            new WP_REST_Request('POST', '/mcp/mcp-adapter-default-server'),
+        ));
+    }
+
+    public function testBearerParsingAndChallengeContract(): void
+    {
+        self::assertTrue(\Vormbyte\OAuth\Middleware\has_bearer_scheme('Bearer'));
+        self::assertTrue(\Vormbyte\OAuth\Middleware\has_bearer_authorization('bearer abc.def'));
+        self::assertFalse(\Vormbyte\OAuth\Middleware\has_bearer_authorization('Basic abc.def'));
+        self::assertSame(
+            'Bearer abc.def',
+            \Vormbyte\OAuth\Middleware\normalize_bearer_authorization('bearer abc.def'),
+        );
+
+        $challenge = \Vormbyte\OAuth\Middleware\www_authenticate_header('invalid_token');
+        self::assertStringContainsString('resource_metadata=', $challenge);
+        self::assertStringContainsString('error="invalid_token"', $challenge);
+        self::assertStringContainsString('scope="full_access"', $challenge);
+    }
+
+    /**
+     * Mirror WP_REST_Server::respond_to_request() for a route whose permission callback denies:
+     * only a WP_Error short-circuits it, the generic rest_forbidden replaces anything else, and the
+     * after-callbacks filter runs either way.
+     */
+    private function dispatchAgainstDenyingPermissionCallback(WP_REST_Request $request): mixed
+    {
+        $response = \Vormbyte\OAuth\Middleware\authorize_routed_request(null, null, $request);
+        if (!$response instanceof WP_Error) {
+            $response = new WP_Error('rest_forbidden', 'Sorry, you are not allowed to do that.', ['status' => 401]);
+        }
+
+        return \Vormbyte\OAuth\Middleware\attach_www_authenticate_challenge($response, null, $request);
+    }
+
+    /** @param list<string> $scopes */
+    private function authenticateOauthUser(array $scopes = ['mcp']): mixed
+    {
+        return \Vormbyte\OAuth\Middleware\resolve_bearer_identity_using(
+            false,
+            'Bearer ' . $this->jwtForAudience(\Vormbyte\OAuth\resource_identifier()),
+            static fn(): array => ['user_id' => 73, 'scopes' => $scopes],
+            is_rest_request: true,
+        );
+    }
+
+    /** @param string|list<string> $audience */
+    private function jwtForAudience(string|array $audience): string
+    {
+        return implode('.', [
+            self::base64url(json_encode(['typ' => 'JWT', 'alg' => 'RS256'], flags: JSON_THROW_ON_ERROR)),
+            self::base64url(json_encode(['aud' => $audience], flags: JSON_THROW_ON_ERROR)),
+            self::base64url('unverified-signature'),
+        ]);
+    }
+
+    private static function base64url(string $value): string
+    {
+        return rtrim(strtr(base64_encode($value), '+/', '-_'), characters: '=');
+    }
+
+    private function hardeningCallbackAllowsOnlyAuthenticatedRequests(): bool
+    {
+        return get_current_user_id() > 0;
+    }
+}

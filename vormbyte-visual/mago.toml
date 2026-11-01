@@ -1,0 +1,9 @@
+php-version = "8.0"
+
+[source]
+paths = ["includes", "bootstrap.php"]
+includes = ["vendor/php-stubs/wordpress-stubs", "stubs"]
+excludes = [".git/**"]
+
+[formatter]
+print-width = 120

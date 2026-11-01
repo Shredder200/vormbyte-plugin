@@ -1,0 +1,21 @@
+{
+    "name": "vormbyte/vormbyte-visual",
+    "description": "WordPress builder editor tools exposed through an MCP workspace",
+    "type": "wordpress-plugin",
+    "license": "AGPL-3.0-or-later",
+    "require": {
+        "php": ">=8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "VormbyteVisual\\": "includes/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    },
+    "require-dev": {
+        "php-stubs/wordpress-stubs": "^6.9",
+        "php-stubs/generator": "^0.8.6"
+    }
+}

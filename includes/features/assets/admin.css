@@ -1,0 +1,102 @@
+.vormbyte-features .vormbyte-admin-list-section {
+    margin-top: 24px;
+}
+
+.vormbyte-features .vormbyte-admin-list-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    min-height: 52px;
+    height: auto;
+    padding-block: 12px;
+}
+
+.vormbyte-feature-main {
+    min-width: 0;
+}
+
+.vormbyte-feature-main > summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 28px;
+    min-width: 0;
+    cursor: pointer;
+    list-style: none;
+}
+
+.vormbyte-feature-main > summary::-webkit-details-marker {
+    display: none;
+}
+
+.vormbyte-feature-main > summary:focus {
+    outline: none;
+}
+
+.vormbyte-feature-main > summary:focus-visible {
+    outline: 2px solid #2271b1;
+    outline-offset: 3px;
+    border-radius: 2px;
+}
+
+.vormbyte-feature-main .slug {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.vormbyte-feature-summary-copy {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+}
+
+.vormbyte-feature-main > summary:hover .slug {
+    color: #2271b1;
+}
+
+.vormbyte-feature-details-action {
+    padding: 4px 10px;
+    border-radius: 4px;
+    color: #52525b;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.vormbyte-feature-main > summary:hover .vormbyte-feature-details-action,
+.vormbyte-feature-main > summary:focus .vormbyte-feature-details-action {
+    background: #f4f4f5;
+    color: #1d2327;
+}
+
+.vormbyte-feature-details {
+    max-width: 900px;
+    padding: 6px 18px 2px 0;
+    color: #646970;
+    font-size: 13px;
+}
+
+.vormbyte-feature-details p {
+    margin: 0 0 6px;
+}
+
+.vormbyte-feature-warning,
+.vormbyte-list-inline-state.is-warning {
+    color: #92400e;
+}
+
+.vormbyte-list-inline-state.is-experimental {
+    color: #8a6116;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+@media (max-width: 782px) {
+    .vormbyte-features .vormbyte-admin-list-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        padding: 10px 16px;
+    }
+}

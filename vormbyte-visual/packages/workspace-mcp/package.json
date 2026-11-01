@@ -1,0 +1,26 @@
+{
+  "name": "vormbyte-visual-mcp",
+  "version": "0.1.2",
+  "description": "MCP server for connecting coding agents to Vormbyte Visual WordPress workspaces.",
+  "license": "AGPL-3.0-or-later",
+  "author": "Vormbyte",
+  "type": "module",
+  "bin": {
+    "vormbyte-visual-mcp": "./bin/workspace-mcp.mjs"
+  },
+  "files": [
+    "bin/workspace-mcp.mjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "ws": "^8.20.0",
+    "zod": "^4.3.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
